@@ -1,0 +1,354 @@
+#%%
+# Import packages
+### YOUR CODE HERE ###
+
+# For data manipulation
+import numpy as np
+import pandas as pd
+from scipy import stats
+# For data visualization
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# For displaying all of the columns in dataframes
+pd.set_option('display.max_columns', None)
+
+# For data modeling
+from xgboost import XGBClassifier
+from xgboost import XGBRegressor
+from xgboost import plot_importance
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+
+# For metrics and helpful functions
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score,\
+f1_score, confusion_matrix, ConfusionMatrixDisplay, classification_report
+from sklearn.metrics import roc_auc_score, roc_curve
+from sklearn.tree import plot_tree
+
+# For saving models
+import pickle
+#%%
+df = pd.read_csv("Parking_Violations_Issued_-_Fiscal_Year_2026_20260916.csv")
+#%%
+df.shape
+#%%
+df.columns
+#%%
+df.head(10)
+#%%
+df.columns = [co.lower() for co in df.columns]
+#%%
+df.columns
+#%%
+df.columns = [co.replace(" ", "_") for co in df.columns]
+#%%
+df.columns
+#%%
+
+violation_code = df["violation_code"].value_counts().to_dict()
+print(violation_code)
+#%%
+code_21 = df[df["violation_code"] == 21]
+#%%
+code_21.head()
+#%%
+df.drop(["fiscal_year","plate_id","plate_type","issuing_agency",'vehicle_expiration_date','violation_location','violation_precinct','issuer_precinct','issuer_code','issuer_command','issuer_squad','violation_time','time_first_observed','violation_in_front_of_or_opposite','house_number','date_first_observed','days_parking_in_effect',
+       'from_hours_in_effect', 'to_hours_in_effect','unregistered_vehicle?','meter_number',
+       'feet_from_curb', 'violation_post_code','no_standing_or_stopping_violation', 'hydrant_violation',
+       'double_parking_violation',"violation_description"],axis = 1,inplace = True)
+#%% md
+# 
+#%%
+df.shape
+#%%
+
+code_21.drop(["fiscal_year", "plate_id", "plate_type", "issuing_agency", 'vehicle_expiration_date', 'violation_location',
+         'violation_precinct', 'issuer_precinct', 'issuer_code', 'issuer_command', 'issuer_squad', 'violation_time',
+         'time_first_observed', 'violation_in_front_of_or_opposite', 'house_number', 'date_first_observed',
+         'days_parking_in_effect',
+         'from_hours_in_effect', 'to_hours_in_effect', 'unregistered_vehicle?', 'meter_number',
+         'feet_from_curb', 'violation_post_code', 'no_standing_or_stopping_violation', 'hydrant_violation',
+         'double_parking_violation', "violation_description"], axis=1, inplace=True)
+#%%
+df.head()
+#%%
+df.drop(["street_code1","street_code2","street_code3","intersecting_street","law_section","sub_division","violation_legal_code"],axis=1, inplace=True)
+#%%
+df.isna().sum
+#%%
+df.dropna(axis = 0,inplace = True)
+#%%
+df.shape
+#%%
+df.head()
+#%%
+counts_dict = df['violation_code'].value_counts().to_dict()
+#%%
+print(counts_dict)
+#%%
+for x in counts_dict:
+    percent = counts_dict[x]/df.shape[0] * 100
+    print(percent,"%")
+#%%
+counts_dict_registration_state = df['registration_state'].value_counts().to_dict()
+print(counts_dict_registration_state)
+print(len(counts_dict_registration_state))
+#%%
+counts_dict_vehicle_body_type = df["vehicle_body_type"].value_counts().to_dict()
+print(counts_dict_vehicle_body_type)
+
+#%%
+counts_dict_vehicle_make = df['vehicle_make'].value_counts().to_dict()
+print(counts_dict_vehicle_make)
+print(len(counts_dict_vehicle_make))
+#%%
+counts_dict_violation_county = df['violation_county'].value_counts().to_dict()
+print(counts_dict_violation_county)
+print(len(counts_dict_violation_county))
+#%%
+df['violation_county'] = df['violation_county'].replace({
+    "K":"BK",
+    "Q":"QN",
+    "Kings":"BK",
+    "Bronx":"BX",
+    "R":"ST",
+    "Qns":"QN",
+    "QNS":"QN",
+    "q":"QN",
+    "Rich":"ST"
+
+
+})
+#%%
+df.drop(df[df["violation_county"].isin(["O", "106", "NYPAS"])].index, inplace=True)
+#%%
+df['vehicle_make'] = df['vehicle_make'].replace({
+    'Toyot': 'TOYOT',
+    'Audi': 'AUDI',
+    "Honda": "HONDA",
+    "Ford": "Ford",
+    "Buick": "BUICK",
+    "Linco": "LINCO",
+    "Chevr":"CHEVR"
+
+})
+#%%
+df['vehicle_make'] = df['vehicle_make'].str.upper()
+#%%
+counts_dict_vehicle_make = df['vehicle_make'].value_counts().to_dict()
+print(counts_dict_vehicle_make)
+print(len(counts_dict_vehicle_make))
+#%%
+df['vehicle_make'] = df['vehicle_make'].replace({
+    'BMW (': 'BMW',
+})
+#%%
+df_unique = df['vehicle_make'].unique()
+
+print(df_unique)
+#%%
+counts = df['vehicle_make'].value_counts()
+df = df[df['vehicle_make'].map(counts) >= 400]
+#%%
+df['vehicle_body_type'] = df['vehicle_body_type'].replace({
+    'SEDA': 'SEDAN',
+    "SD":"SEDAN"
+
+
+})
+#%%
+import matplotlib.ticker as mtick
+violation_county = df['violation_county'].value_counts()
+violation_county.plot.pie(figsize=(10,10),autopct='%1.1f%%',legend=True,shadow=False,startangle=90)
+plt.title('Violation County Distribution')
+plt.show()
+violation_county = df['violation_county'].value_counts()
+
+ax =violation_county.plot.bar(figsize=(10,10),legend=False)
+ax.yaxis.set_major_formatter(mtick.StrMethodFormatter('{x:,.0f}'))
+plt.ylabel("")
+plt.title('Violation County Distribution')
+plt.show()
+
+
+#%%
+violation_code_pie = df['violation_code'].value_counts()
+violation_code_pie.plot.pie(figsize=(10,10),autopct='%1.1f%%',legend=True,shadow=False,startangle=90)
+plt.title('Violation Code Distribution')
+plt.show()
+#%%
+violation_code = df["violation_code"].value_counts().to_dict()
+print(violation_code)
+#%%
+government = df[df['registration_state'].isin(["GV", "DP"])]
+government_violation = government["violation_code"].value_counts()
+government_violation.plot.pie(
+    figsize=(10, 10),
+    autopct="%1.1f%%",
+    legend=True,
+    shadow=False,
+    startangle=90,
+    subplots=True
+)
+
+plt.title("Violations by Government cars")
+plt.show()
+
+
+
+queens = df[df["violation_county"] == "QN"]
+
+queen_violation = queens["violation_code"].value_counts()
+
+queen_violation.plot.pie(
+    figsize=(10, 10),
+    autopct="%1.1f%%",
+    legend=True,
+    shadow=False,
+    startangle=90
+)
+
+plt.title("Violation Code Distribution in Queens")
+plt.ylabel("")
+plt.show()
+ST = df[df["violation_county"] == "ST"]
+
+staten_violation = ST["violation_code"].value_counts()
+
+staten_violation.plot.pie(
+    figsize=(10, 10),
+    autopct="%1.1f%%",
+    legend=True,
+    shadow=False,
+    startangle=90
+)
+
+plt.title("Violation Code Distribution in Staten Island")
+plt.ylabel("")
+plt.show()
+
+MN = df[df["violation_county"] == "MN"]
+
+Manhattan_violation = MN["violation_code"].value_counts()
+
+Manhattan_violation.plot.pie(
+    figsize=(10, 10),
+    autopct="%1.1f%%",
+    legend=True,
+    shadow=False,
+    startangle=90
+)
+
+plt.title("Violation Code Distribution in Manhattan")
+plt.ylabel("")
+plt.show()
+
+BK = df[df["violation_county"] == "BK"]
+
+Brooklyn_violation = BK["violation_code"].value_counts()
+
+Brooklyn_violation.plot.pie(
+    figsize=(10, 10),
+    autopct="%1.1f%%",
+    legend=True,
+    shadow=False,
+    startangle=90
+)
+
+plt.title("Violation Code Distribution in Brooklyn")
+plt.ylabel("")
+plt.show()
+
+BX = df[df["violation_county"] == "BX"]
+
+Bronx_violation = BX["violation_code"].value_counts()
+
+Bronx_violation.plot.pie(
+    figsize=(10, 10),
+    autopct="%1.1f%%",
+    legend=True,
+    shadow=False,
+    startangle=90
+)
+
+plt.title("Violation Code Distribution in Bronx")
+plt.ylabel("")
+plt.show()
+
+
+
+
+flordia = df[df["registration_state"] == "FL"]
+
+flordia_violation_location = flordia["violation_county"].value_counts()
+
+flordia_violation_location.plot.bar(
+    figsize=(10, 10),
+
+    legend=False,
+
+)
+
+plt.title("Violations by Floridians")
+plt.ylabel("")
+plt.show()
+
+#%%
+states = ["NY","FL", "NJ", "PA", "VA", "GA","OH","IL",]
+
+for state in states:
+    state_df = df[df["registration_state"] == state]
+
+    violations = state_df["violation_code"].value_counts()
+    violation_location = state_df["violation_county"].value_counts()
+    violations.plot.pie(
+        figsize=(8, 8),
+        autopct="%1.1f%%",
+        startangle=90
+    )
+
+    plt.title(f"Violations by {state} Registered Vehicles")
+    plt.ylabel("")
+    plt.show()
+
+    violation_location.plot.bar(
+    figsize=(10, 10),
+
+    legend=False,
+
+    )
+
+    plt.title(f"Violations by {state} in Boroughs")
+    plt.ylabel("")
+    plt.show()
+
+
+
+
+
+#%%
+df.shape
+#%%
+y = df["violation_code"]
+#%%
+df.head()
+#%%
+counts_dict_vehicle_color = df['vehicle_color'].value_counts().to_dict()
+print(counts_dict_vehicle_color)
+#%%
+df['vehicle_color'] = df['vehicle_color'].replace({
+    'BK': 'BLK',
+    'BL': 'BLK',
+    "BLACK": "BLK",
+
+})
+#%%
+df.columns
+#%%
+counts_dict_street = df['street_name'].value_counts().to_dict()
+print(counts_dict_street)
+#%%
